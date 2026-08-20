@@ -16,6 +16,7 @@
     --green-mid:     #58c463;
     --green-bright:  #9dffb0;
     --green-glow:    rgba(120,255,140,0.55);
+    --flash-color:   rgba(150,255,170,0.5);
     --red-warn:      #ff5d5d;
     --scanline:      rgba(0,0,0,0.35);
     --font-mono: "Courier New", "Lucida Console", Menlo, Consolas, monospace;
@@ -63,12 +64,32 @@
   }
   @keyframes flicker{
     0%,100%{ opacity:0.35; }
-    42%{ opacity:0.35; }
-    43%{ opacity:0.22; }
-    44%{ opacity:0.35; }
+    38%{ opacity:0.35; }
+    39%{ opacity:0.2; }
+    40%{ opacity:0.35; }
+    68%{ opacity:0.35; }
+    69%{ opacity:0.42; }
+    70%{ opacity:0.3; }
     71%{ opacity:0.35; }
-    72%{ opacity:0.4; }
-    73%{ opacity:0.35; }
+    91%{ opacity:0.35; }
+    92%{ opacity:0.24; }
+    93%{ opacity:0.35; }
+  }
+
+  /* slow bright sweep line, adds a bit of life to both screens */
+  .scan-sweep{
+    position:fixed;
+    left:0;
+    right:0;
+    height:60px;
+    background:linear-gradient(to bottom, transparent, rgba(140,255,160,0.06), transparent);
+    z-index:40;
+    pointer-events:none;
+    animation:sweep-move 7s linear infinite;
+  }
+  @keyframes sweep-move{
+    0%{ top:-10%; }
+    100%{ top:110%; }
   }
 
   /* =========================================================
@@ -106,6 +127,10 @@
     font-size:14px;
     text-shadow:0 0 6px var(--green-glow);
     animation:noise-pop linear infinite;
+  }
+  .noise-char.far{
+    color:#1f5a28;
+    filter:blur(0.3px);
   }
   @keyframes noise-pop{
     0%{ opacity:0; }
@@ -159,21 +184,42 @@
     100%{ transform:translate(0,0); }
   }
 
-  /* full-screen flash right before reveal */
+  /* occasional horizontal displacement bar, purely decorative */
+  .hglitch-bar{
+    position:fixed;
+    left:0;
+    right:0;
+    height:3px;
+    background:rgba(150,255,170,0.35);
+    z-index:60;
+    pointer-events:none;
+    opacity:0;
+  }
+  .hglitch-bar.play{
+    animation:hbar-flick 0.25s steps(3);
+  }
+  @keyframes hbar-flick{
+    0%{ opacity:0; transform:translateX(0); }
+    30%{ opacity:0.8; transform:translateX(-8px); }
+    60%{ opacity:0.5; transform:translateX(6px); }
+    100%{ opacity:0; transform:translateX(0); }
+  }
+
+  /* full-screen flash right before reveal — soft green, not white */
   #boot-flash{
     position:fixed;
     inset:0;
-    background:#dfffe4;
+    background:var(--flash-color);
     opacity:0;
     z-index:150;
     pointer-events:none;
   }
   #boot-flash.go{
-    animation:flash-pop 0.35s ease-out;
+    animation:flash-pop 0.45s ease-out;
   }
   @keyframes flash-pop{
     0%{ opacity:0; }
-    15%{ opacity:0.9; }
+    18%{ opacity:0.45; }
     100%{ opacity:0; }
   }
 
@@ -212,6 +258,20 @@
     flex-wrap:wrap;
     gap:4px 16px;
   }
+  .rec-dot{
+    display:inline-block;
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:var(--red-warn);
+    box-shadow:0 0 6px rgba(255,93,93,0.7);
+    margin-right:6px;
+    animation:rec-blink 1.6s steps(1) infinite;
+  }
+  @keyframes rec-blink{
+    0%,49%{ opacity:1; }
+    50%,100%{ opacity:0.15; }
+  }
 
   .doc-wrap{
     max-width:720px;
@@ -224,11 +284,12 @@
     text-shadow:0 0 14px var(--green-glow), 0 0 2px var(--green-bright);
     letter-spacing:2px;
     margin:0 0 6px;
-    animation:title-shimmer 4s ease-in-out infinite;
+    animation:title-shimmer 5s ease-in-out infinite;
   }
   @keyframes title-shimmer{
-    0%,100%{ text-shadow:0 0 14px var(--green-glow), 0 0 2px var(--green-bright); }
-    50%{ text-shadow:0 0 22px var(--green-glow), 0 0 4px var(--green-bright); }
+    0%,100%{ text-shadow:0 0 12px var(--green-glow), 0 0 2px var(--green-bright); }
+    45%{ text-shadow:0 0 24px var(--green-glow), 0 0 5px var(--green-bright); }
+    52%{ text-shadow:0 0 10px var(--green-glow), 0 0 1px var(--green-bright); }
   }
   .doc-subtitle{
     font-size:12px;
@@ -241,6 +302,97 @@
     border:none;
     border-top:1px dashed rgba(80,180,90,0.3);
     margin:22px 0;
+  }
+
+  /* =========================================================
+     PASSWORD / DECRYPTION GATE
+     ========================================================= */
+  .lock-box{
+    border:1px solid rgba(80,180,90,0.4);
+    background:rgba(10,22,12,0.4);
+    padding:28px 20px;
+    text-align:center;
+    margin:6px 0 30px;
+    cursor:text;
+    user-select:none;
+  }
+  .lock-box .lock-icon{
+    font-size:22px;
+    color:var(--green-mid);
+    margin-bottom:10px;
+    letter-spacing:3px;
+  }
+  .lock-box .lock-label{
+    font-size:12px;
+    letter-spacing:2px;
+    color:var(--green-dim);
+    margin-bottom:20px;
+    line-height:1.7;
+  }
+  .key-slots{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .key-slot{
+    width:36px;
+    height:46px;
+    border:1px solid rgba(80,180,90,0.5);
+    background:rgba(0,0,0,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:22px;
+    color:var(--green-bright);
+    text-shadow:0 0 8px var(--green-glow);
+    transition:border-color 0.15s ease;
+  }
+  .lock-box.focused .key-slot{
+    border-color:rgba(140,255,160,0.85);
+  }
+  #key-input{
+    position:absolute;
+    opacity:0;
+    width:1px;
+    height:1px;
+    pointer-events:none;
+  }
+  .lock-hint{
+    font-size:11px;
+    color:var(--green-dim);
+    opacity:0.55;
+    letter-spacing:1px;
+  }
+  .lock-error{
+    margin-top:14px;
+    font-size:12px;
+    color:var(--red-warn);
+    letter-spacing:1px;
+    min-height:16px;
+    text-shadow:0 0 6px rgba(255,93,93,0.4);
+  }
+  .lock-box.shake{
+    animation:shake 0.4s;
+  }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-7px); }
+    40%{ transform:translateX(7px); }
+    60%{ transform:translateX(-4px); }
+    80%{ transform:translateX(4px); }
+  }
+
+  .encrypted-content{
+    display:none;
+  }
+  .encrypted-content.revealed{
+    display:block;
+    animation:reveal-fade 0.9s ease;
+  }
+  @keyframes reveal-fade{
+    0%{ opacity:0; filter:blur(3px); }
+    100%{ opacity:1; filter:blur(0); }
   }
 
   /* the actual message body */
@@ -317,6 +469,7 @@
   @media (max-width:520px){
     .device-header .row{ flex-direction:column; }
     .doc-body{ font-size:14.5px; }
+    .key-slot{ width:32px; height:42px; font-size:20px; }
   }
 </style>
 </head>
@@ -324,6 +477,8 @@
 
 <!-- CRT overlay, shared across both screens -->
 <div class="crt flicker"></div>
+<div class="scan-sweep"></div>
+<div class="hglitch-bar" id="hglitch-bar"></div>
 <div id="boot-flash"></div>
 
 <!-- =========================================================
@@ -342,9 +497,9 @@
 <div id="main-screen">
 
   <div class="device-header">
-    <div class="row"><span>REMOVABLE STORAGE DEVICE</span><span class="hi">STATUS: RECOVERED</span></div>
+    <div class="row"><span><span class="rec-dot"></span>REMOVABLE STORAGE DEVICE</span><span class="hi">STATUS: RECOVERED</span></div>
     <div class="row"><span>DEVICE ID: UNKNOWN</span><span>FILE: MESSAGE.TXT</span></div>
-    <div class="row"><span>ENCRYPTION: BROKEN</span><span>SECTORS OK: 2 / 3</span></div>
+    <div class="row"><span>ENCRYPTION: ACTIVE</span><span>SECTORS OK: 2 / 3</span></div>
   </div>
 
   <div class="doc-wrap">
@@ -354,10 +509,30 @@
     <hr class="divider">
 
     <!-- =========================================================
+         PASSWORD GATE
+         Файл текстово зашифрован. Правильный ключ задаётся
+         константой CORRECT_KEY в скрипте ниже (по умолчанию 1111).
+         ========================================================= -->
+    <div class="lock-box" id="lock-box">
+      <div class="lock-icon">[ ENCRYPTED ]</div>
+      <div class="lock-label">СОДЕРЖИМОЕ ФАЙЛА ЗАШИФРОВАНО<br>ВВЕДИТЕ 4-ЗНАЧНЫЙ КЛЮЧ ДЕШИФРОВКИ</div>
+      <div class="key-slots">
+        <span class="key-slot"></span>
+        <span class="key-slot"></span>
+        <span class="key-slot"></span>
+        <span class="key-slot"></span>
+      </div>
+      <input type="tel" inputmode="numeric" id="key-input" maxlength="4" autocomplete="off">
+      <div class="lock-hint">НАЖМИТЕ СЮДА И ВВЕДИТЕ КЛЮЧ</div>
+      <div class="lock-error" id="lock-error"></div>
+    </div>
+
+    <!-- =========================================================
          EDIT YOUR MESSAGE HERE
          =========================================================
          Всё, что находится внутри <div class="doc-body"> ... </div>
-         ниже — это и есть текст сообщения, который видит игрок.
+         ниже — это и есть текст сообщения, который видит игрок
+         ПОСЛЕ ввода правильного пароля.
 
          Разрешённые элементы:
            <p>...</p>            — обычный абзац
@@ -368,23 +543,23 @@
          Можно свободно добавлять, удалять и менять абзацы.
          Ничего в остальном файле трогать не нужно.
     -->
-    <div class="doc-body">
+    <div class="encrypted-content" id="encrypted-content">
+      <div class="doc-body">
 
-      <p>Привет. У нового Ласомбры есть отличная идея. Прямо таки, на мильйон. </p>
+        <p>Привет, есть небольшое дело, надо будет порешать с одними ребятками вопросики.</p>
 
-      <p>Он предлагает нам очистить метро от заразы, или же хотя бы  часть метро, и канализации. Гарантирует помощь в этом.</p>
+        <p>Встретимся за городом, на дисктрикте 5021. Будь одна. Следи за хвостом.</p>
 
-      <p>Сам он хочет забахать там лабораторию с наркотой, как я понял. Собственно, звучит интересно. Интересует? Я бы попробовал.</p>
+        <p>Награда тебе понравиться. <strong>ОЧЕНЬ</strong> Все, до связи!</p>
 
-      <div class="warning">
-        <span class="tag">[ WARNING ]</span>
-        Не подключай это устройство к рабочим или личным сетям без крайней необходимости. Часть данных на нём повреждена не случайно.
+        <div class="warning">
+          <span class="tag">[ WARNING ]</span>
+          Не подключай это устройство к рабочим или личным сетям без крайней необходимости. Часть данных на нём повреждена не случайно.
+        </div>
+
       </div>
-
-      <p>Сырный, твой дружелюбный сосед.
-
+      <!-- END EDITABLE MESSAGE -->
     </div>
-    <!-- END EDITABLE MESSAGE -->
 
     <hr class="divider">
   </div>
@@ -405,16 +580,19 @@
      Each entry: { text, className (optional), pause-after (ms) }
      ========================================================= */
   const bootLines = [
-    { text: "DEVICE DETECTED",            cls: "",       pause: 260 },
-    { text: "USB STORAGE FOUND",          cls: "",       pause: 300 },
-    { text: "READING DEVICE...",          cls: "",       pause: 420 },
-    { text: "SECTOR 01 ........ OK",      cls: "bright", pause: 180 },
-    { text: "SECTOR 02 ........ OK",      cls: "bright", pause: 180 },
-    { text: "SECTOR 03 ........ CORRUPTED", cls: "warn-line", pause: 520, glitch:true },
-    { text: "RECOVERING DATA...",         cls: "",       pause: 460 },
-    { text: "ENCRYPTED FILE FOUND",       cls: "bright", pause: 380 },
-    { text: "DECRYPTING...",              cls: "",       pause: 600, glitch:true },
-    { text: "ACCESS GRANTED",             cls: "bright", pause: 500 }
+    { text: "DEVICE DETECTED",            cls: "",       pause: 240 },
+    { text: "USB STORAGE FOUND",          cls: "",       pause: 260 },
+    { text: "INITIALIZING CONTROLLER...", cls: "",       pause: 300 },
+    { text: "READING DEVICE...",          cls: "",       pause: 400 },
+    { text: "SECTOR 01 ........ OK",      cls: "bright", pause: 150 },
+    { text: "SECTOR 02 ........ OK",      cls: "bright", pause: 150 },
+    { text: "SECTOR 03 ........ CORRUPTED", cls: "warn-line", pause: 480, glitch:true },
+    { text: "SECTOR 04 ........ OK",      cls: "bright", pause: 150 },
+    { text: "RECOVERING DATA...",         cls: "",       pause: 420 },
+    { text: "REBUILDING FILE TABLE...",   cls: "",       pause: 380 },
+    { text: "ENCRYPTED FILE FOUND",       cls: "bright", pause: 340 },
+    { text: "DECRYPTING...",              cls: "",       pause: 560, glitch:true },
+    { text: "ACCESS GRANTED",             cls: "bright", pause: 480 }
   ];
 
   const bootTextEl = document.getElementById("boot-text");
@@ -422,21 +600,35 @@
   const bootFlash  = document.getElementById("boot-flash");
   const mainScreen = document.getElementById("main-screen");
   const noiseLayer = document.getElementById("noise-layer");
+  const hglitchBar = document.getElementById("hglitch-bar");
 
   /* ---- background noise characters (purely decorative) ---- */
-  const noiseChars = "01#$%&/\\<>^~*ABCDEFXYZ01001".split("");
+  const noiseChars = "01#$%&/\\<>^~*?!+=;:ABCDEFXYZ01001".split("");
   function spawnNoise(){
     const n = document.createElement("span");
-    n.className = "noise-char";
+    const isFar = Math.random() < 0.4;
+    n.className = "noise-char" + (isFar ? " far" : "");
     n.textContent = noiseChars[Math.floor(Math.random()*noiseChars.length)];
-    n.style.left = Math.random()*96 + "%";
-    n.style.top  = Math.random()*96 + "%";
-    n.style.animationDuration = (1.4 + Math.random()*1.8) + "s";
-    n.style.fontSize = (10 + Math.random()*10) + "px";
+    n.style.left = Math.random()*97 + "%";
+    n.style.top  = Math.random()*97 + "%";
+    n.style.animationDuration = (1.2 + Math.random()*1.8) + "s";
+    n.style.fontSize = (isFar ? 9 + Math.random()*8 : 11 + Math.random()*11) + "px";
     noiseLayer.appendChild(n);
     setTimeout(() => n.remove(), 3600);
   }
-  const noiseInterval = setInterval(spawnNoise, 90);
+  // denser noise field for a busier, more "reading a damaged drive" feel
+  const noiseInterval = setInterval(spawnNoise, 45);
+  const noiseBurstInterval = setInterval(() => {
+    for(let i=0;i<3;i++) spawnNoise();
+  }, 260);
+
+  /* occasional horizontal glitch bar during boot */
+  const hbarInterval = setInterval(() => {
+    hglitchBar.style.top = (10 + Math.random()*80) + "%";
+    hglitchBar.classList.remove("play");
+    void hglitchBar.offsetWidth;
+    hglitchBar.classList.add("play");
+  }, 900);
 
   /* ---- typewriter for one line, returns a Promise ---- */
   function typeLine(entry){
@@ -463,12 +655,12 @@
           }, entry.pause);
           return;
         }
-        const skip = Math.random() < 0.04; // rare dropped char, retried next tick
+        const skip = Math.random() < 0.045; // rare dropped char, retried next tick
         if(!skip){
           lineEl.textContent += chars[i];
           i++;
         }
-        setTimeout(nextChar, 22 + Math.random()*28);
+        setTimeout(nextChar, 20 + Math.random()*26);
       }
       nextChar();
     });
@@ -483,14 +675,86 @@
     // small extra beat, then flash + reveal
     await new Promise(r => setTimeout(r, 300));
     clearInterval(noiseInterval);
+    clearInterval(noiseBurstInterval);
+    clearInterval(hbarInterval);
     bootFlash.classList.add("go");
     setTimeout(() => {
       bootScreen.classList.add("fade-out");
       setTimeout(() => {
         bootScreen.classList.add("hidden");
         mainScreen.classList.add("visible");
+        initLock();
       }, 600);
     }, 160);
+  }
+
+  /* =========================================================
+     PASSWORD / DECRYPTION GATE LOGIC
+     Правильный ключ задаётся ниже. По умолчанию: 1111
+     ========================================================= */
+  const CORRECT_KEY = "1111";
+
+  function initLock(){
+    const lockBox = document.getElementById("lock-box");
+    const keyInput = document.getElementById("key-input");
+    const keySlots = document.querySelectorAll(".key-slot");
+    const lockError = document.getElementById("lock-error");
+    const encryptedContent = document.getElementById("encrypted-content");
+    let attempts = 0;
+    let locked = false; // becomes true once solved
+
+    function updateSlots(){
+      const val = keyInput.value;
+      keySlots.forEach((slot, idx) => {
+        slot.textContent = val[idx] ? "•" : "";
+      });
+    }
+
+    function focusInput(){
+      keyInput.focus();
+      lockBox.classList.add("focused");
+    }
+
+    lockBox.addEventListener("click", focusInput);
+    keyInput.addEventListener("blur", () => lockBox.classList.remove("focused"));
+
+    keyInput.addEventListener("input", () => {
+      keyInput.value = keyInput.value.replace(/\D/g, "").slice(0, 4);
+      updateSlots();
+      if(keyInput.value.length === 4){
+        setTimeout(checkKey, 180);
+      }
+    });
+
+    function checkKey(){
+      if(locked) return;
+      const val = keyInput.value;
+      if(val.length < 4) return;
+
+      if(val === CORRECT_KEY){
+        locked = true;
+        lockError.textContent = "";
+        lockError.style.color = "var(--green-bright)";
+        lockError.textContent = "KEY ACCEPTED — DECRYPTING...";
+        setTimeout(() => {
+          lockBox.style.display = "none";
+          encryptedContent.classList.add("revealed");
+        }, 380);
+      } else {
+        attempts++;
+        lockBox.classList.remove("shake");
+        void lockBox.offsetWidth; // reflow to restart animation
+        lockBox.classList.add("shake");
+        lockError.style.color = "var(--red-warn)";
+        lockError.textContent = "ACCESS DENIED — INCORRECT KEY (ATTEMPT " + attempts + ")";
+        keyInput.value = "";
+        updateSlots();
+        focusInput();
+      }
+    }
+
+    // convenient: let people focus the field right away on desktop
+    setTimeout(focusInput, 300);
   }
 
   runBoot();
@@ -514,4 +778,3 @@ EDITABLE MESSAGE
 Он отмечен комментариями:
   <!-- EDIT YOUR MESSAGE HERE -->
   <!-- END EDITABLE MESSAGE -->
-
