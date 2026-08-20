@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>RECOVERED FILE // MESSAGE.TXT</title>
+
+<style>
+  /* =========================================================
+     TOKENS — old monochrome terminal, dim green on near-black
+     ========================================================= */
+  :root{
+    --bg:            #060a06;
+    --bg-panel:      #0a100a;
+    --green-dim:     #3ea34a;
+    --green-mid:     #58c463;
+    --green-bright:  #9dffb0;
+    --green-glow:    rgba(120,255,140,0.55);
+    --red-warn:      #ff5d5d;
+    --scanline:      rgba(0,0,0,0.35);
+    --font-mono: "Courier New", "Lucida Console", Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:var(--bg);
+    color:var(--green-dim);
+    font-family:var(--font-mono);
+    height:100%;
+    overflow-x:hidden;
+  }
+
+  /* =========================================================
+     CRT / SCREEN OVERLAY — shared by boot + main
+     ========================================================= */
+  .crt{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:50;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        var(--scanline) 0px,
+        var(--scanline) 1px,
+        transparent 2px,
+        transparent 3px
+      );
+    mix-blend-mode:multiply;
+    opacity:0.35;
+  }
+  .crt::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.55) 100%);
+  }
+  .flicker{
+    animation:flicker 6.5s infinite;
+  }
+  @keyframes flicker{
+    0%,100%{ opacity:0.35; }
+    42%{ opacity:0.35; }
+    43%{ opacity:0.22; }
+    44%{ opacity:0.35; }
+    71%{ opacity:0.35; }
+    72%{ opacity:0.4; }
+    73%{ opacity:0.35; }
+  }
+
+  /* =========================================================
+     BOOT SCREEN
+     ========================================================= */
+  #boot-screen{
+    position:fixed;
+    inset:0;
+    background:#000;
+    z-index:100;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    transition:opacity 0.6s ease;
+  }
+  #boot-screen.fade-out{
+    opacity:0;
+  }
+  #boot-screen.hidden{
+    display:none;
+  }
+
+  /* scattered background noise characters */
+  #noise-layer{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    overflow:hidden;
+  }
+  .noise-char{
+    position:absolute;
+    color:var(--green-dim);
+    opacity:0;
+    font-size:14px;
+    text-shadow:0 0 6px var(--green-glow);
+    animation:noise-pop linear infinite;
+  }
+  @keyframes noise-pop{
+    0%{ opacity:0; }
+    5%{ opacity:0.55; }
+    12%{ opacity:0; }
+    100%{ opacity:0; }
+  }
+
+  #boot-text{
+    position:relative;
+    z-index:2;
+    width:min(560px, 88vw);
+    line-height:1.65;
+    font-size:14px;
+    letter-spacing:0.5px;
+  }
+  #boot-text .line{
+    white-space:pre-wrap;
+    text-shadow:0 0 6px var(--green-glow);
+    color:var(--green-mid);
+  }
+  #boot-text .line.bright{
+    color:var(--green-bright);
+    text-shadow:0 0 10px var(--green-glow);
+  }
+  #boot-text .line.warn-line{
+    color:#e0d060;
+    text-shadow:0 0 6px rgba(224,208,96,0.5);
+  }
+  #boot-cursor{
+    display:inline-block;
+    width:8px;
+    height:14px;
+    background:var(--green-bright);
+    box-shadow:0 0 8px var(--green-glow);
+    vertical-align:text-bottom;
+    animation:blink 1s steps(1) infinite;
+  }
+  @keyframes blink{
+    0%,49%{ opacity:1; }
+    50%,100%{ opacity:0; }
+  }
+
+  /* momentary garble applied to a line via JS */
+  .glitch-text{
+    animation:glitch-shift 0.15s steps(2) 2;
+  }
+  @keyframes glitch-shift{
+    0%{ transform:translate(0,0); }
+    50%{ transform:translate(1px,-1px); filter:hue-rotate(20deg); }
+    100%{ transform:translate(0,0); }
+  }
+
+  /* full-screen flash right before reveal */
+  #boot-flash{
+    position:fixed;
+    inset:0;
+    background:#dfffe4;
+    opacity:0;
+    z-index:150;
+    pointer-events:none;
+  }
+  #boot-flash.go{
+    animation:flash-pop 0.35s ease-out;
+  }
+  @keyframes flash-pop{
+    0%{ opacity:0; }
+    15%{ opacity:0.9; }
+    100%{ opacity:0; }
+  }
+
+  /* =========================================================
+     MAIN DOCUMENT SCREEN
+     ========================================================= */
+  #main-screen{
+    position:relative;
+    min-height:100vh;
+    padding:32px 18px 60px;
+    opacity:0;
+    transition:opacity 1s ease;
+  }
+  #main-screen.visible{
+    opacity:1;
+  }
+
+  .device-header{
+    max-width:720px;
+    margin:0 auto 34px;
+    border:1px solid rgba(80,180,90,0.35);
+    padding:14px 16px;
+    background:linear-gradient(180deg, rgba(20,40,22,0.35), rgba(6,10,6,0.1));
+    font-size:12px;
+    line-height:1.7;
+    letter-spacing:0.5px;
+    color:var(--green-dim);
+  }
+  .device-header .hi{
+    color:var(--green-bright);
+    text-shadow:0 0 6px var(--green-glow);
+  }
+  .device-header .row{
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:4px 16px;
+  }
+
+  .doc-wrap{
+    max-width:720px;
+    margin:0 auto;
+  }
+
+  .doc-title{
+    font-size:clamp(26px, 5vw, 40px);
+    color:var(--green-bright);
+    text-shadow:0 0 14px var(--green-glow), 0 0 2px var(--green-bright);
+    letter-spacing:2px;
+    margin:0 0 6px;
+    animation:title-shimmer 4s ease-in-out infinite;
+  }
+  @keyframes title-shimmer{
+    0%,100%{ text-shadow:0 0 14px var(--green-glow), 0 0 2px var(--green-bright); }
+    50%{ text-shadow:0 0 22px var(--green-glow), 0 0 4px var(--green-bright); }
+  }
+  .doc-subtitle{
+    font-size:12px;
+    color:var(--green-dim);
+    letter-spacing:1px;
+    margin-bottom:26px;
+    opacity:0.8;
+  }
+  .divider{
+    border:none;
+    border-top:1px dashed rgba(80,180,90,0.3);
+    margin:22px 0;
+  }
+
+  /* the actual message body */
+  .doc-body{
+    font-size:15.5px;
+    line-height:1.85;
+    color:#bfe9c4;
+  }
+  .doc-body p{
+    margin:0 0 18px;
+  }
+  .doc-body strong{
+    color:var(--green-bright);
+    text-shadow:0 0 6px var(--green-glow);
+    font-weight:700;
+  }
+  .doc-body em{
+    color:var(--green-mid);
+    font-style:italic;
+  }
+  .warning{
+    border:1px solid rgba(255,93,93,0.5);
+    background:rgba(255,93,93,0.06);
+    color:var(--red-warn);
+    padding:12px 14px;
+    margin:20px 0;
+    font-size:14px;
+    letter-spacing:0.5px;
+    line-height:1.7;
+    text-shadow:0 0 6px rgba(255,93,93,0.35);
+  }
+  .warning .tag{
+    display:block;
+    font-weight:700;
+    margin-bottom:4px;
+    letter-spacing:1px;
+  }
+
+  /* subtle non-constant flicker on the whole document */
+  .doc-body, .doc-title{
+    animation-name: doc-flicker;
+    animation-duration: 9s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+  @keyframes doc-flicker{
+    0%,96%{ opacity:1; }
+    96.6%{ opacity:0.82; }
+    97%{ opacity:1; }
+    98.4%{ opacity:0.9; }
+    98.7%{ opacity:1; }
+  }
+
+  .footer-sig{
+    max-width:720px;
+    margin:46px auto 0;
+    font-size:12px;
+    color:var(--green-dim);
+    letter-spacing:1px;
+    line-height:1.8;
+    opacity:0.85;
+  }
+  .footer-sig .end-cursor{
+    display:inline-block;
+    width:7px;
+    height:12px;
+    background:var(--green-mid);
+    box-shadow:0 0 6px var(--green-glow);
+    margin-left:4px;
+    vertical-align:text-bottom;
+    animation:blink 1s steps(1) infinite;
+  }
+
+  @media (max-width:520px){
+    .device-header .row{ flex-direction:column; }
+    .doc-body{ font-size:14.5px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CRT overlay, shared across both screens -->
+<div class="crt flicker"></div>
+<div id="boot-flash"></div>
+
+<!-- =========================================================
+     BOOT / INTRO SCREEN
+     ========================================================= -->
+<div id="boot-screen">
+  <div id="noise-layer"></div>
+  <div id="boot-text">
+    <!-- lines injected by JS, typed character by character -->
+  </div>
+</div>
+
+<!-- =========================================================
+     MAIN SCREEN — the "recovered file" view
+     ========================================================= -->
+<div id="main-screen">
+
+  <div class="device-header">
+    <div class="row"><span>REMOVABLE STORAGE DEVICE</span><span class="hi">STATUS: RECOVERED</span></div>
+    <div class="row"><span>DEVICE ID: UNKNOWN</span><span>FILE: MESSAGE.TXT</span></div>
+    <div class="row"><span>ENCRYPTION: BROKEN</span><span>SECTORS OK: 2 / 3</span></div>
+  </div>
+
+  <div class="doc-wrap">
+    <h1 class="doc-title">MESSAGE // 01</h1>
+    <div class="doc-subtitle">RECOVERED FROM DAMAGED SECTOR — ORIGINAL TIMESTAMP UNREADABLE</div>
+
+    <hr class="divider">
+
+    <!-- =========================================================
+         EDIT YOUR MESSAGE HERE
+         =========================================================
+         Всё, что находится внутри <div class="doc-body"> ... </div>
+         ниже — это и есть текст сообщения, который видит игрок.
+
+         Разрешённые элементы:
+           <p>...</p>            — обычный абзац
+           <strong>...</strong>  — выделенный (яркий) текст
+           <em>...</em>          — курсив
+           <div class="warning"> — блок предупреждения
+
+         Можно свободно добавлять, удалять и менять абзацы.
+         Ничего в остальном файле трогать не нужно.
+    -->
+    <div class="doc-body">
+
+      <p>Если ты это читаешь — значит, накопитель всё-таки прочитался. Я не была уверена, что после всего этого времени на нём вообще что-то останется.</p>
+
+      <p>Это не письмо в привычном смысле. Я не знаю, кто ты и когда именно нашёл эту флешку. Может, прошло несколько месяцев. Может — гораздо больше.</p>
+
+      <p>Я специально не хранила это ни на сервере, ни в облаке. <strong>Только здесь.</strong> На одном физическом носителе, который можно потерять, спрятать или уничтожить — но не выследить.</p>
+
+      <div class="warning">
+        <span class="tag">[ WARNING ]</span>
+        Не подключай это устройство к рабочим или личным сетям без крайней необходимости. Часть данных на нём повреждена не случайно.
+      </div>
+
+      <p>Если коротко: то, что случилось на объекте, не было аварией. Записи, которые я собрала <em>до того, как всё отключили</em>, находятся не здесь — но флешка укажет, где их искать.</p>
+
+      <p>Ищи в тех местах, о которых мы говорили последний раз. Ты поймёшь, когда доберёшься.</p>
+
+      <p>Будь осторожен. И, пожалуйста — не доверяй никому, кто скажет, что нашёл это раньше тебя.</p>
+
+    </div>
+    <!-- END EDITABLE MESSAGE -->
+
+    <hr class="divider">
+  </div>
+
+  <div class="footer-sig">
+    FILE RECOVERY COMPLETE<br>
+    DEVICE DISCONNECTED<br>
+    END OF FILE<span class="end-cursor"></span>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+  /* =========================================================
+     BOOT SEQUENCE CONFIG
+     Each entry: { text, className (optional), pause-after (ms) }
+     ========================================================= */
+  const bootLines = [
+    { text: "DEVICE DETECTED",            cls: "",       pause: 260 },
+    { text: "USB STORAGE FOUND",          cls: "",       pause: 300 },
+    { text: "READING DEVICE...",          cls: "",       pause: 420 },
+    { text: "SECTOR 01 ........ OK",      cls: "bright", pause: 180 },
+    { text: "SECTOR 02 ........ OK",      cls: "bright", pause: 180 },
+    { text: "SECTOR 03 ........ CORRUPTED", cls: "warn-line", pause: 520, glitch:true },
+    { text: "RECOVERING DATA...",         cls: "",       pause: 460 },
+    { text: "ENCRYPTED FILE FOUND",       cls: "bright", pause: 380 },
+    { text: "DECRYPTING...",              cls: "",       pause: 600, glitch:true },
+    { text: "ACCESS GRANTED",             cls: "bright", pause: 500 }
+  ];
+
+  const bootTextEl = document.getElementById("boot-text");
+  const bootScreen = document.getElementById("boot-screen");
+  const bootFlash  = document.getElementById("boot-flash");
+  const mainScreen = document.getElementById("main-screen");
+  const noiseLayer = document.getElementById("noise-layer");
+
+  /* ---- background noise characters (purely decorative) ---- */
+  const noiseChars = "01#$%&/\\<>^~*ABCDEFXYZ01001".split("");
+  function spawnNoise(){
+    const n = document.createElement("span");
+    n.className = "noise-char";
+    n.textContent = noiseChars[Math.floor(Math.random()*noiseChars.length)];
+    n.style.left = Math.random()*96 + "%";
+    n.style.top  = Math.random()*96 + "%";
+    n.style.animationDuration = (1.4 + Math.random()*1.8) + "s";
+    n.style.fontSize = (10 + Math.random()*10) + "px";
+    noiseLayer.appendChild(n);
+    setTimeout(() => n.remove(), 3600);
+  }
+  const noiseInterval = setInterval(spawnNoise, 90);
+
+  /* ---- typewriter for one line, returns a Promise ---- */
+  function typeLine(entry){
+    return new Promise((resolve) => {
+      const lineEl = document.createElement("div");
+      lineEl.className = "line" + (entry.cls ? " " + entry.cls : "");
+      bootTextEl.appendChild(lineEl);
+
+      const chars = entry.text.split("");
+      let i = 0;
+
+      // occasional dropped character for a "damaged media" feel
+      function nextChar(){
+        if(i >= chars.length){
+          if(entry.glitch){
+            lineEl.classList.add("glitch-text");
+          }
+          const cursor = document.createElement("span");
+          cursor.id = "boot-cursor";
+          lineEl.appendChild(cursor);
+          setTimeout(() => {
+            cursor.remove();
+            resolve();
+          }, entry.pause);
+          return;
+        }
+        const skip = Math.random() < 0.04; // rare dropped char, retried next tick
+        if(!skip){
+          lineEl.textContent += chars[i];
+          i++;
+        }
+        setTimeout(nextChar, 22 + Math.random()*28);
+      }
+      nextChar();
+    });
+  }
+
+  async function runBoot(){
+    // brief pause before anything appears
+    await new Promise(r => setTimeout(r, 400));
+    for(const entry of bootLines){
+      await typeLine(entry);
+    }
+    // small extra beat, then flash + reveal
+    await new Promise(r => setTimeout(r, 300));
+    clearInterval(noiseInterval);
+    bootFlash.classList.add("go");
+    setTimeout(() => {
+      bootScreen.classList.add("fade-out");
+      setTimeout(() => {
+        bootScreen.classList.add("hidden");
+        mainScreen.classList.add("visible");
+      }, 600);
+    }, 160);
+  }
+
+  runBoot();
+
+})();
+</script>
+
+</body>
+</html>
+<!--
+==================================================
+EDITABLE MESSAGE
+МЕНЯЙ ТЕКСТ ТОЛЬКО В ЭТОМ БЛОКЕ
+==================================================
+Найди в коде выше блок:
+
+  <div class="doc-body">
+    ... текст сообщения ...
+  </div>
+
+Он отмечен комментариями:
+  <!-- EDIT YOUR MESSAGE HERE -->
+  <!-- END EDITABLE MESSAGE -->
+
