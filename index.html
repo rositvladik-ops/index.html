@@ -2,1136 +2,858 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RECOVERED FILE // MESSAGE.TXT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>message.txt — Найденный компьютер</title>
 
 <style>
-  /* =========================================================
-     TOKENS — old monochrome terminal, dim green on near-black
-     ========================================================= */
   :root{
-    --bg:            #060a06;
-    --bg-panel:      #0a100a;
-    --green-dim:     #3ea34a;
-    --green-mid:     #58c463;
-    --green-bright:  #9dffb0;
-    --green-glow:    rgba(120,255,140,0.55);
-    --flash-color:   rgba(150,255,170,0.5);
-    --red-warn:      #ff5d5d;
-    --amber-warn:    #e0d060;
-    --scanline:      rgba(0,0,0,0.35);
-    --font-mono: "Courier New", "Lucida Console", Menlo, Consolas, monospace;
+    --luna-blue-1:#1f5fd6;
+    --luna-blue-2:#3f8cf3;
+    --luna-blue-3:#0a3fae;
+    --taskbar-1:#2058d8;
+    --taskbar-2:#173f9c;
+    --start-green-1:#5ad14e;
+    --start-green-2:#2e9b28;
+    --start-green-3:#1f7a1c;
+    --bezel-1:#e5e5df;
+    --bezel-2:#c7c7bf;
+    --bezel-3:#a9a9a0;
+    --sky-1:#3a7bd5;
+    --sky-2:#8ec9f0;
+    --sky-3:#cfeafc;
+    --hill-1:#3f9d33;
+    --hill-2:#5cbf3f;
+    --hill-3:#8fdd52;
+    --win-gray:#ece9d8;
+    --win-gray-dark:#c7c3b0;
+    --font-ui: Tahoma, "Segoe UI", Verdana, Arial, sans-serif;
   }
 
-  *{ box-sizing: border-box; }
-
+  *{ box-sizing:border-box; }
   html,body{
-    margin:0;
-    padding:0;
-    background:var(--bg);
-    color:var(--green-dim);
-    font-family:var(--font-mono);
-    height:100%;
-    overflow-x:hidden;
+    margin:0; padding:0; height:100%;
+    font-family:var(--font-ui);
+    background:radial-gradient(ellipse at 50% 30%, #2a2a2e 0%, #101012 60%, #050506 100%);
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
   }
-
-  /* =========================================================
-     CRT / SCREEN OVERLAY — shared by boot + main
-     ========================================================= */
-  .crt{
-    position:fixed;
-    inset:0;
-    pointer-events:none;
-    z-index:50;
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        var(--scanline) 0px,
-        var(--scanline) 1px,
-        transparent 2px,
-        transparent 3px
-      );
-    mix-blend-mode:multiply;
-    opacity:0.35;
-  }
-  .crt::after{
-    content:"";
-    position:absolute;
-    inset:0;
-    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.55) 100%);
-  }
-  .flicker{
-    animation:flicker 6.5s infinite;
-  }
-  @keyframes flicker{
-    0%,100%{ opacity:0.35; }
-    38%{ opacity:0.35; }
-    39%{ opacity:0.2; }
-    40%{ opacity:0.35; }
-    68%{ opacity:0.35; }
-    69%{ opacity:0.42; }
-    70%{ opacity:0.3; }
-    71%{ opacity:0.35; }
-    91%{ opacity:0.35; }
-    92%{ opacity:0.24; }
-    93%{ opacity:0.35; }
-  }
-
-  /* slow bright sweep line, adds a bit of life to both screens */
-  .scan-sweep{
-    position:fixed;
-    left:0;
-    right:0;
-    height:60px;
-    background:linear-gradient(to bottom, transparent, rgba(140,255,160,0.06), transparent);
-    z-index:40;
-    pointer-events:none;
-    animation:sweep-move 7s linear infinite;
-  }
-  @keyframes sweep-move{
-    0%{ top:-10%; }
-    100%{ top:110%; }
-  }
-
-  /* =========================================================
-     AUDIO TOGGLE BUTTON
-     No sound plays automatically anywhere on the page — the
-     AudioContext is only created inside this button's own click
-     handler, which satisfies every browser's autoplay policy.
-     ========================================================= */
-  #audio-toggle{
-    position:fixed;
-    top:12px;
-    right:12px;
-    z-index:200;
-    background:rgba(6,12,6,0.75);
-    border:1px solid rgba(80,180,90,0.45);
-    color:var(--green-dim);
-    font-family:var(--font-mono);
-    font-size:11px;
-    letter-spacing:1px;
-    padding:7px 10px;
-    cursor:pointer;
-    user-select:none;
-  }
-  #audio-toggle:hover{
-    border-color:rgba(140,255,160,0.8);
-    color:var(--green-mid);
-  }
-  #audio-toggle.on{
-    color:var(--green-bright);
-    border-color:rgba(140,255,160,0.85);
-    text-shadow:0 0 6px var(--green-glow);
-  }
-
-  /* =========================================================
-     BOOT SCREEN
-     ========================================================= */
-  #boot-screen{
-    position:fixed;
-    inset:0;
-    background:#000;
-    z-index:100;
+  body{
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow:hidden;
-    transition:opacity 0.6s ease;
-  }
-  #boot-screen.fade-out{
-    opacity:0;
-  }
-  #boot-screen.hidden{
-    display:none;
-  }
-
-  /* scattered background noise characters */
-  #noise-layer{
-    position:absolute;
-    inset:0;
-    z-index:1;
-    overflow:hidden;
-  }
-  .noise-char{
-    position:absolute;
-    color:var(--green-dim);
-    opacity:0;
-    font-size:14px;
-    text-shadow:0 0 6px var(--green-glow);
-    animation:noise-pop linear infinite;
-  }
-  .noise-char.far{
-    color:#1f5a28;
-    filter:blur(0.3px);
-  }
-  @keyframes noise-pop{
-    0%{ opacity:0; }
-    5%{ opacity:0.55; }
-    12%{ opacity:0; }
-    100%{ opacity:0; }
-  }
-
-  #boot-text{
-    position:relative;
-    z-index:2;
-    width:min(560px, 88vw);
-    line-height:1.65;
-    font-size:14px;
-    letter-spacing:0.5px;
-  }
-  #boot-text .line{
-    white-space:pre-wrap;
-    text-shadow:0 0 6px var(--green-glow);
-    color:var(--green-mid);
-  }
-  #boot-text .line.bright{
-    color:var(--green-bright);
-    text-shadow:0 0 10px var(--green-glow);
-  }
-  #boot-text .line.warn-line{
-    color:var(--amber-warn);
-    text-shadow:0 0 6px rgba(224,208,96,0.5);
-  }
-  #boot-cursor{
-    display:inline-block;
-    width:8px;
-    height:14px;
-    background:var(--green-bright);
-    box-shadow:0 0 8px var(--green-glow);
-    vertical-align:text-bottom;
-    animation:blink 1s steps(1) infinite;
-  }
-  @keyframes blink{
-    0%,49%{ opacity:1; }
-    50%,100%{ opacity:0; }
-  }
-
-  /* momentary garble applied to a line via JS */
-  .glitch-text{
-    animation:glitch-shift 0.15s steps(2) 2;
-  }
-  @keyframes glitch-shift{
-    0%{ transform:translate(0,0); }
-    50%{ transform:translate(1px,-1px); filter:hue-rotate(20deg); }
-    100%{ transform:translate(0,0); }
-  }
-
-  /* occasional horizontal displacement bar, purely decorative */
-  .hglitch-bar{
-    position:fixed;
-    left:0;
-    right:0;
-    height:3px;
-    background:rgba(150,255,170,0.35);
-    z-index:60;
-    pointer-events:none;
-    opacity:0;
-  }
-  .hglitch-bar.play{
-    animation:hbar-flick 0.25s steps(3);
-  }
-  @keyframes hbar-flick{
-    0%{ opacity:0; transform:translateX(0); }
-    30%{ opacity:0.8; transform:translateX(-8px); }
-    60%{ opacity:0.5; transform:translateX(6px); }
-    100%{ opacity:0; transform:translateX(0); }
-  }
-
-  /* full-screen flash right before reveal — soft green, not white */
-  #boot-flash{
-    position:fixed;
-    inset:0;
-    background:var(--flash-color);
-    opacity:0;
-    z-index:150;
-    pointer-events:none;
-  }
-  #boot-flash.go{
-    animation:flash-pop 0.45s ease-out;
-  }
-  @keyframes flash-pop{
-    0%{ opacity:0; }
-    18%{ opacity:0.45; }
-    100%{ opacity:0; }
-  }
-
-  /* =========================================================
-     MAIN DOCUMENT SCREEN
-     ========================================================= */
-  #main-screen{
-    position:relative;
     min-height:100vh;
-    padding:32px 18px 60px;
-    opacity:0;
-    transition:opacity 1s ease;
-  }
-  #main-screen.visible{
-    opacity:1;
-  }
-
-  .device-header{
-    max-width:720px;
-    margin:0 auto 34px;
-    border:1px solid rgba(80,180,90,0.35);
-    padding:14px 16px;
-    background:linear-gradient(180deg, rgba(20,40,22,0.35), rgba(6,10,6,0.1));
-    font-size:12px;
-    line-height:1.7;
-    letter-spacing:0.5px;
-    color:var(--green-dim);
-  }
-  .device-header .hi{
-    color:var(--green-bright);
-    text-shadow:0 0 6px var(--green-glow);
-  }
-  .device-header .row{
-    display:flex;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    gap:4px 16px;
-  }
-  .rec-dot{
-    display:inline-block;
-    width:7px;
-    height:7px;
-    border-radius:50%;
-    background:var(--red-warn);
-    box-shadow:0 0 6px rgba(255,93,93,0.7);
-    margin-right:6px;
-    animation:rec-blink 1.6s steps(1) infinite;
-  }
-  @keyframes rec-blink{
-    0%,49%{ opacity:1; }
-    50%,100%{ opacity:0.15; }
-  }
-
-  .doc-wrap{
-    max-width:720px;
-    margin:0 auto;
-  }
-
-  .doc-title{
-    font-size:clamp(26px, 5vw, 40px);
-    color:var(--green-bright);
-    text-shadow:0 0 14px var(--green-glow), 0 0 2px var(--green-bright);
-    letter-spacing:2px;
-    margin:0 0 6px;
-    animation:title-shimmer 5s ease-in-out infinite;
-  }
-  @keyframes title-shimmer{
-    0%,100%{ text-shadow:0 0 12px var(--green-glow), 0 0 2px var(--green-bright); }
-    45%{ text-shadow:0 0 24px var(--green-glow), 0 0 5px var(--green-bright); }
-    52%{ text-shadow:0 0 10px var(--green-glow), 0 0 1px var(--green-bright); }
-  }
-  .doc-subtitle{
-    font-size:12px;
-    color:var(--green-dim);
-    letter-spacing:1px;
-    margin-bottom:26px;
-    opacity:0.8;
-  }
-  .divider{
-    border:none;
-    border-top:1px dashed rgba(80,180,90,0.3);
-    margin:22px 0;
+    padding:16px;
+    user-select:none;
   }
 
   /* =========================================================
-     FILE LIST SCREEN — shown before the password gate
+     POWER-ON FLICKER — brief, automatic, no interaction needed
      ========================================================= */
-  .file-list-screen{
-    margin:6px 0 30px;
-    border:1px solid rgba(80,180,90,0.35);
-    padding:18px 18px 20px;
-    background:rgba(8,16,9,0.35);
-    transition:opacity 0.45s ease, transform 0.45s ease;
+  #power-flash{
+    position:fixed; inset:0; background:#fff; z-index:500;
+    opacity:0; pointer-events:none;
+    animation:power-on 900ms ease-out forwards;
   }
-  .file-list-screen.hidden{
-    display:none;
-  }
-  .file-list-screen.fading{
-    opacity:0;
-    transform:translateY(-6px);
-  }
-  .file-list-title{
-    font-size:12px;
-    letter-spacing:2px;
-    color:var(--green-dim);
-    margin-bottom:14px;
-    opacity:0.75;
-  }
-  .file-entry{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:9px 10px;
-    margin-bottom:6px;
-    border:1px solid rgba(80,180,90,0.18);
-    font-size:13.5px;
-    letter-spacing:0.5px;
-    color:#4a7a4f;
-    position:relative;
-  }
-  .file-entry .status{
-    font-size:11px;
-    letter-spacing:1px;
-    color:var(--red-warn);
-    opacity:0.8;
-  }
-  .file-entry .status.ok{
-    color:var(--green-bright);
-    text-shadow:0 0 6px var(--green-glow);
-  }
-  .file-entry.open{
-    cursor:pointer;
-    color:var(--green-bright);
-    border-color:rgba(140,255,160,0.55);
-    animation:file-pulse 2.4s ease-in-out infinite;
-  }
-  .file-entry.open:hover{
-    background:rgba(140,255,160,0.06);
-  }
-  @keyframes file-pulse{
-    0%,100%{ box-shadow:0 0 0 rgba(140,255,160,0); }
-    50%{ box-shadow:0 0 10px rgba(140,255,160,0.18); }
-  }
-  .file-entry.corrupted{
-    cursor:not-allowed;
-    opacity:0.6;
-  }
-  .file-entry .denied-flash{
-    position:absolute;
-    right:10px;
-    font-size:10px;
-    letter-spacing:1px;
-    color:var(--red-warn);
-    opacity:0;
-  }
-  .file-entry .denied-flash.play{
-    animation:denied-pop 0.9s ease;
-  }
-  @keyframes denied-pop{
+  @keyframes power-on{
     0%{ opacity:0; }
-    15%{ opacity:1; }
-    80%{ opacity:1; }
+    8%{ opacity:0.9; }
+    14%{ opacity:0.1; }
+    20%{ opacity:0.7; }
+    30%{ opacity:0; }
     100%{ opacity:0; }
   }
-  .file-list-hint{
-    margin-top:12px;
-    font-size:11px;
-    color:var(--green-dim);
-    opacity:0.55;
-    letter-spacing:1px;
+
+  /* =========================================================
+     MONITOR SHELL
+     ========================================================= */
+  .monitor-wrap{
+    width:min(1040px, 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .monitor{
+    width:100%;
+    aspect-ratio:4 / 3.15;
+    background:linear-gradient(160deg, var(--bezel-1) 0%, var(--bezel-2) 55%, var(--bezel-3) 100%);
+    border-radius:22px;
+    padding:3.2% 3.2% 6.5%;
+    box-shadow:
+      0 30px 70px rgba(0,0,0,0.6),
+      0 4px 0 rgba(255,255,255,0.35) inset,
+      0 -6px 12px rgba(0,0,0,0.15) inset;
+    position:relative;
+  }
+
+  .monitor::before{
+    /* brand label, purely decorative */
+    content:"CRT-VISION 900";
+    position:absolute;
+    left:50%; bottom:3%;
+    transform:translateX(-50%);
+    font-size:clamp(8px,1.1vw,11px);
+    letter-spacing:2px;
+    color:#6d6d64;
+    font-family:Arial, sans-serif;
+    font-weight:bold;
+  }
+
+  .power-led{
+    position:absolute;
+    right:6%; bottom:3.4%;
+    width:9px; height:9px;
+    border-radius:50%;
+    background:#5ad14e;
+    box-shadow:0 0 6px 2px rgba(90,209,78,0.9);
+    animation:led-blink 3.2s ease-in-out infinite;
+  }
+  @keyframes led-blink{
+    0%,92%,100%{ opacity:1; }
+    96%{ opacity:0.4; }
+  }
+
+  .screen{
+    position:relative;
+    width:100%; height:100%;
+    background:#000;
+    border-radius:8px;
+    overflow:hidden;
+    box-shadow:
+      0 0 0 2px #0a0a0a,
+      inset 0 0 40px rgba(0,0,0,0.85),
+      inset 0 0 90px rgba(0,0,0,0.5);
+  }
+
+  /* subtle scanline / curvature overlay for CRT authenticity */
+  .screen::after{
+    content:"";
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:80;
+    background:
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px, transparent 2px, transparent 3px),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 65%, rgba(0,0,0,0.45) 100%);
+    mix-blend-mode:multiply;
+    opacity:0.5;
   }
 
   /* =========================================================
-     PASSWORD / DECRYPTION GATE
+     DESKTOP
      ========================================================= */
-  .lock-box{
-    border:1px solid rgba(80,180,90,0.4);
-    background:rgba(10,22,12,0.4);
-    padding:28px 20px;
-    text-align:center;
-    margin:6px 0 30px;
-    cursor:text;
-    user-select:none;
-    transition:opacity 0.4s ease, transform 0.4s ease;
+  .desktop{
+    position:absolute; inset:0;
+    overflow:hidden;
   }
-  .lock-box.hidden{
-    display:none;
+
+  .wallpaper{
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 45%, var(--sky-3) 62%, var(--hill-2) 63%, var(--hill-1) 100%);
   }
-  .lock-box.fading-in{
-    animation:lockbox-in 0.5s ease;
+  .wallpaper::before{
+    /* rolling hill highlight */
+    content:"";
+    position:absolute; left:-10%; right:-10%; bottom:0; height:42%;
+    background:radial-gradient(ellipse 70% 100% at 30% 100%, var(--hill-3) 0%, transparent 60%),
+               radial-gradient(ellipse 60% 100% at 80% 100%, var(--hill-3) 0%, transparent 55%);
+    opacity:0.8;
   }
-  @keyframes lockbox-in{
-    0%{ opacity:0; transform:translateY(6px); }
-    100%{ opacity:1; transform:translateY(0); }
+  .wallpaper::after{
+    /* a couple of soft clouds */
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 90px 24px at 20% 22%, rgba(255,255,255,0.85), transparent 70%),
+      radial-gradient(ellipse 70px 18px at 24% 25%, rgba(255,255,255,0.7), transparent 70%),
+      radial-gradient(ellipse 110px 26px at 72% 15%, rgba(255,255,255,0.8), transparent 70%),
+      radial-gradient(ellipse 80px 20px at 78% 18%, rgba(255,255,255,0.65), transparent 70%);
   }
-  .lock-box .lock-icon{
-    font-size:22px;
-    color:var(--green-mid);
-    margin-bottom:10px;
-    letter-spacing:3px;
-  }
-  .lock-box .lock-label{
-    font-size:12px;
-    letter-spacing:2px;
-    color:var(--green-dim);
-    margin-bottom:20px;
-    line-height:1.7;
-  }
-  .key-slots{
+
+  .icons{
+    position:absolute;
+    top:2.5%; left:1.5%;
     display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-bottom:14px;
+    flex-direction:column;
+    gap:2.4%;
+    z-index:5;
   }
-  .key-slot{
-    width:36px;
-    height:46px;
-    border:1px solid rgba(80,180,90,0.5);
-    background:rgba(0,0,0,0.35);
+
+  .icon{
+    width:clamp(48px, 8vw, 74px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    padding:4px 3px;
+    border-radius:3px;
+    cursor:pointer;
+    outline:none;
+  }
+  .icon.selected{
+    background:rgba(60,120,215,0.35);
+    outline:1px dotted rgba(255,255,255,0.7);
+  }
+  .icon-glyph{
+    width:clamp(28px,4.2vw,38px);
+    height:clamp(28px,4.2vw,38px);
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:22px;
-    color:var(--green-bright);
-    text-shadow:0 0 8px var(--green-glow);
-    transition:border-color 0.15s ease;
+    font-size:clamp(20px,3.2vw,28px);
+    filter:drop-shadow(1px 2px 1px rgba(0,0,0,0.5));
   }
-  .lock-box.focused .key-slot{
-    border-color:rgba(140,255,160,0.85);
+  .icon-label{
+    color:#fff;
+    font-size:clamp(8.5px,1.15vw,11px);
+    text-align:center;
+    line-height:1.2;
+    text-shadow:1px 1px 2px rgba(0,0,0,0.9);
+    max-width:100%;
+    word-break:break-word;
   }
-  .lock-box.locked-out .key-slot{
-    border-color:rgba(224,208,96,0.4);
-    color:rgba(224,208,96,0.5);
+  .icon.selected .icon-label{
+    background:rgba(30,80,180,0.85);
+    padding:0 2px;
   }
-  #key-input{
+
+  /* =========================================================
+     NOTEPAD WINDOW
+     ========================================================= */
+  .window{
     position:absolute;
+    top:8%; left:50%;
+    transform:translateX(-50%);
+    width:min(560px, 84%);
+    height:min(420px, 72%);
+    background:var(--win-gray);
+    border:1px solid #0a3fae;
+    border-radius:8px 8px 3px 3px;
+    box-shadow:0 14px 34px rgba(0,0,0,0.55);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    z-index:50;
     opacity:0;
-    width:1px;
-    height:1px;
     pointer-events:none;
+    transform:translateX(-50%) scale(0.85);
+    transition:opacity 180ms ease, transform 180ms ease;
   }
-  .lock-hint{
-    font-size:11px;
-    color:var(--green-dim);
-    opacity:0.55;
-    letter-spacing:1px;
+  .window.open{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateX(-50%) scale(1);
   }
-  .lock-hint-text{
-    font-size:11px;
-    color:var(--green-dim);
-    opacity:0.4;
-    letter-spacing:1px;
-    font-style:italic;
-    margin-top:6px;
+  .window.minimized{
+    opacity:0;
+    pointer-events:none;
+    transform:translateX(-50%) scale(0.85) translateY(40%);
   }
-  .lock-error{
-    margin-top:14px;
+
+  .titlebar{
+    height:clamp(24px,3.4vw,30px);
+    background:linear-gradient(180deg, var(--luna-blue-2) 0%, var(--luna-blue-1) 45%, var(--luna-blue-3) 100%);
+    display:flex;
+    align-items:center;
+    padding:0 4px 0 6px;
+    flex-shrink:0;
+  }
+  .titlebar .title-icon{
     font-size:12px;
-    color:var(--red-warn);
-    letter-spacing:1px;
-    min-height:16px;
-    text-shadow:0 0 6px rgba(255,93,93,0.4);
+    margin-right:5px;
   }
-  .lock-box.shake{
-    animation:shake 0.4s;
+  .titlebar .title-text{
+    color:#fff;
+    font-size:clamp(10.5px,1.5vw,13px);
+    font-weight:bold;
+    text-shadow:1px 1px 1px rgba(0,0,0,0.4);
+    flex:1;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
   }
-  @keyframes shake{
-    0%,100%{ transform:translateX(0); }
-    20%{ transform:translateX(-7px); }
-    40%{ transform:translateX(7px); }
-    60%{ transform:translateX(-4px); }
-    80%{ transform:translateX(4px); }
+  .title-buttons{
+    display:flex;
+    gap:2px;
+  }
+  .title-buttons button{
+    width:clamp(18px,2.6vw,22px);
+    height:clamp(16px,2.3vw,20px);
+    border:1px solid rgba(255,255,255,0.5);
+    border-radius:3px;
+    background:linear-gradient(180deg,#3f8ef0,#1c5fd0);
+    color:#fff;
+    font-size:11px;
+    font-weight:bold;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .title-buttons button:active{ filter:brightness(0.85); }
+  .title-buttons .btn-close{
+    background:linear-gradient(180deg,#f16a5c,#c8281a);
   }
 
-  .encrypted-content{
-    display:none;
+  .menubar{
+    background:var(--win-gray);
+    border-bottom:1px solid var(--win-gray-dark);
+    display:flex;
+    gap:14px;
+    padding:2px 8px;
+    font-size:clamp(9.5px,1.3vw,12px);
+    color:#000;
+    flex-shrink:0;
   }
-  .encrypted-content.revealed{
-    display:block;
-    animation:reveal-fade 0.5s ease;
+  .menubar span{ cursor:pointer; padding:1px 3px; border-radius:2px; }
+  .menubar span:hover{ background:#3f8cf3; color:#fff; }
+
+  .notepad-body{
+    flex:1;
+    background:#fff;
+    overflow:auto;
+    padding:10px 12px;
   }
-  @keyframes reveal-fade{
-    0%{ opacity:0; }
-    100%{ opacity:1; }
+  .notepad-text{
+    width:100%;
+    height:100%;
+    border:none;
+    outline:none;
+    resize:none;
+    background:transparent;
+    font-family:"Courier New", Consolas, monospace;
+    font-size:clamp(11px,1.5vw,13.5px);
+    line-height:1.55;
+    color:#111;
+    white-space:pre-wrap;
   }
 
-  /* the actual message body */
-  .doc-body{
-    font-size:15.5px;
-    line-height:1.85;
-    color:#bfe9c4;
+  .statusbar{
+    height:clamp(16px,2.2vw,20px);
+    background:var(--win-gray);
+    border-top:1px solid #fff;
+    box-shadow:0 -1px 0 var(--win-gray-dark) inset;
+    font-size:clamp(8.5px,1.15vw,10.5px);
+    color:#333;
+    display:flex;
+    align-items:center;
+    padding:0 8px;
+    flex-shrink:0;
   }
-  .doc-body p{
-    margin:0 0 18px;
+
+  /* generic desktop toast for "dummy" interactions */
+  .toast{
+    position:absolute;
+    left:50%; bottom:14%;
+    transform:translateX(-50%) translateY(8px);
+    background:rgba(20,20,20,0.85);
+    color:#fff;
+    font-size:clamp(9px,1.3vw,11.5px);
+    padding:6px 12px;
+    border-radius:4px;
+    opacity:0;
+    transition:opacity 160ms ease, transform 160ms ease;
+    pointer-events:none;
+    z-index:120;
+    white-space:nowrap;
   }
-  .doc-body strong{
-    color:var(--green-bright);
-    text-shadow:0 0 6px var(--green-glow);
-    font-weight:700;
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
   }
-  .doc-body em{
-    color:var(--green-mid);
-    font-style:italic;
+
+  /* =========================================================
+     START MENU — decorative only
+     ========================================================= */
+  .start-menu{
+    position:absolute;
+    left:1%;
+    bottom:calc(6.2% + 4px);
+    width:min(230px, 62%);
+    background:var(--win-gray);
+    border:1px solid #0a3fae;
+    border-radius:6px 6px 0 0;
+    box-shadow:0 10px 26px rgba(0,0,0,0.5);
+    overflow:hidden;
+    z-index:90;
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(8px);
+    transition:opacity 140ms ease, transform 140ms ease;
   }
-  .warning{
-    border:1px solid rgba(255,93,93,0.5);
-    background:rgba(255,93,93,0.06);
-    color:var(--red-warn);
-    padding:12px 14px;
-    margin:20px 0;
+  .start-menu.open{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateY(0);
+  }
+  .start-menu-header{
+    background:linear-gradient(90deg, var(--luna-blue-1), var(--luna-blue-2));
+    color:#fff;
+    font-size:clamp(11px,1.6vw,13px);
+    font-weight:bold;
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .start-avatar{
+    width:26px; height:26px;
+    border-radius:4px;
+    background:linear-gradient(160deg,#ffce54,#f0a020);
+    display:flex; align-items:center; justify-content:center;
     font-size:14px;
-    letter-spacing:0.5px;
-    line-height:1.7;
-    text-shadow:0 0 6px rgba(255,93,93,0.35);
+    border:1px solid rgba(255,255,255,0.6);
   }
-  .warning .tag{
-    display:block;
-    font-weight:700;
-    margin-bottom:4px;
-    letter-spacing:1px;
+  .start-menu-items{
+    padding:4px 0;
   }
-
-  /* subtle non-constant flicker on the whole document */
-  .doc-body, .doc-title{
-    animation-name: doc-flicker;
-    animation-duration: 9s;
-    animation-iteration-count: infinite;
-    animation-timing-function: linear;
+  .start-menu-items div{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 12px;
+    font-size:clamp(9.5px,1.35vw,12px);
+    color:#000;
+    cursor:pointer;
   }
-  @keyframes doc-flicker{
-    0%,96%{ opacity:1; }
-    96.6%{ opacity:0.82; }
-    97%{ opacity:1; }
-    98.4%{ opacity:0.9; }
-    98.7%{ opacity:1; }
+  .start-menu-items div:hover{
+    background:#3f8cf3;
+    color:#fff;
   }
-
-  .footer-sig{
-    max-width:720px;
-    margin:46px auto 0;
-    font-size:12px;
-    color:var(--green-dim);
-    letter-spacing:1px;
-    line-height:1.8;
-    opacity:0.85;
-  }
-  .footer-sig .end-cursor{
-    display:inline-block;
-    width:7px;
-    height:12px;
-    background:var(--green-mid);
-    box-shadow:0 0 6px var(--green-glow);
-    margin-left:4px;
-    vertical-align:text-bottom;
-    animation:blink 1s steps(1) infinite;
+  .start-menu-items .sep{
+    height:1px;
+    background:var(--win-gray-dark);
+    margin:4px 8px;
+    padding:0;
   }
 
-  @media (max-width:520px){
-    .device-header .row{ flex-direction:column; }
-    .doc-body{ font-size:14.5px; }
-    .key-slot{ width:32px; height:42px; font-size:20px; }
-    #audio-toggle{ font-size:10px; padding:6px 8px; }
-    .file-entry{ font-size:12.5px; flex-direction:column; align-items:flex-start; gap:3px; }
+  /* =========================================================
+     TASKBAR — buttons here are clickable but purely decorative
+     ========================================================= */
+  .taskbar{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:6.2%;
+    min-height:24px;
+    background:linear-gradient(180deg, var(--taskbar-1) 0%, var(--taskbar-2) 100%);
+    border-top:1px solid #4f8cf5;
+    display:flex;
+    align-items:center;
+    padding:0 4px;
+    gap:6px;
+    z-index:60;
+  }
+
+  .start-btn{
+    height:82%;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:0 10px 0 6px;
+    background:linear-gradient(180deg, var(--start-green-1) 0%, var(--start-green-2) 55%, var(--start-green-3) 100%);
+    border:1px solid #145012;
+    border-radius:5px;
+    color:#fff;
+    font-weight:bold;
+    font-style:italic;
+    font-size:clamp(10px,1.6vw,13px);
+    cursor:pointer;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.25) inset;
+  }
+  .start-btn:active, .start-btn.active{
+    filter:brightness(0.88);
+  }
+  .flag{
+    width:14px; height:14px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:1px;
+    flex-shrink:0;
+  }
+  .flag span:nth-child(1){ background:#f25022; }
+  .flag span:nth-child(2){ background:#7fba00; }
+  .flag span:nth-child(3){ background:#00a4ef; }
+  .flag span:nth-child(4){ background:#ffb900; }
+
+  .taskbar-sep{
+    width:1px;
+    height:70%;
+    background:rgba(255,255,255,0.25);
+    flex-shrink:0;
+  }
+
+  .quicklaunch{
+    display:flex;
+    gap:5px;
+    flex-shrink:0;
+  }
+  .ql-btn{
+    width:clamp(18px,2.6vw,22px);
+    height:clamp(18px,2.6vw,22px);
+    border-radius:3px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(10px,1.6vw,13px);
+    cursor:pointer;
+    background:transparent;
+  }
+  .ql-btn:hover{ background:rgba(255,255,255,0.18); }
+  .ql-btn:active{ background:rgba(0,0,0,0.15); }
+
+  .taskbar-windows{
+    flex:1;
+    display:flex;
+    gap:5px;
+    overflow:hidden;
+    height:82%;
+    align-items:center;
+  }
+  .taskbar-window-btn{
+    display:none;
+    align-items:center;
+    gap:5px;
+    height:100%;
+    max-width:150px;
+    padding:0 8px;
+    background:linear-gradient(180deg,#3f79e8,#2456c2);
+    border:1px solid #12306e;
+    border-radius:4px;
+    color:#fff;
+    font-size:clamp(9px,1.4vw,11px);
+    cursor:pointer;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .taskbar-window-btn.show{ display:flex; }
+  .taskbar-window-btn.inactive{
+    background:linear-gradient(180deg,#1f4dab,#123072);
+  }
+
+  .tray{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    height:82%;
+    padding:0 8px;
+    background:rgba(0,0,0,0.12);
+    border-radius:4px 0 0 4px;
+    flex-shrink:0;
+  }
+  .tray-icon{
+    font-size:clamp(10px,1.5vw,12px);
+    cursor:pointer;
+    opacity:0.9;
+  }
+  .tray-icon:hover{ opacity:1; }
+  .clock{
+    color:#fff;
+    font-size:clamp(9px,1.4vw,11.5px);
+    min-width:44px;
+    text-align:center;
+  }
+
+  @media (max-width:480px){
+    .monitor{ aspect-ratio:4/3.4; border-radius:16px; padding:4.5% 4.5% 8%; }
+    .window{ width:92%; height:76%; top:6%; }
+    .icons{ gap:5%; }
   }
 </style>
 </head>
 <body>
 
-<!-- CRT overlay, shared across both screens -->
-<div class="crt flicker"></div>
-<div class="scan-sweep"></div>
-<div class="hglitch-bar" id="hglitch-bar"></div>
-<div id="boot-flash"></div>
+<div id="power-flash"></div>
 
-<!-- Sound is OFF by default and never plays on its own.
-     AudioContext is only created inside this button's click handler. -->
-<button id="audio-toggle" type="button">[ ENABLE AUDIO SIGNAL ]</button>
+<div class="monitor-wrap">
+  <div class="monitor">
+    <div class="power-led"></div>
+    <div class="screen">
+      <div class="desktop" id="desktop">
+        <div class="wallpaper"></div>
 
-<!-- =========================================================
-     BOOT / INTRO SCREEN
-     ========================================================= -->
-<div id="boot-screen">
-  <div id="noise-layer"></div>
-  <div id="boot-text">
-    <!-- lines injected by JS, typed character by character -->
-  </div>
-</div>
+        <!-- =====================================================
+             DESKTOP ICONS
+             Иконки "Мой компьютер" и "Корзина" — чисто декоративные
+             (мишура), реагируют на клик, но ничего не открывают.
+             Только "message.txt" реально открывает окно.
+             ===================================================== -->
+        <div class="icons" id="icons">
+          <div class="icon" data-name="Мой компьютер" tabindex="0">
+            <div class="icon-glyph">🖥️</div>
+            <div class="icon-label">Мой компьютер</div>
+          </div>
+          <div class="icon" data-name="Корзина" tabindex="0">
+            <div class="icon-glyph">🗑️</div>
+            <div class="icon-label">Корзина</div>
+          </div>
+          <div class="icon" data-name="Сетевое окружение" tabindex="0">
+            <div class="icon-glyph">🌐</div>
+            <div class="icon-label">Сетевое окружение</div>
+          </div>
+          <div class="icon" id="icon-message" data-name="message.txt" tabindex="0">
+            <div class="icon-glyph">📄</div>
+            <div class="icon-label">message.txt</div>
+          </div>
+        </div>
 
-<!-- =========================================================
-     MAIN SCREEN — the "recovered file" view
-     ========================================================= -->
-<div id="main-screen">
+        <!-- =====================================================
+             NOTEPAD WINDOW — единственное реальное действие на
+             странице: открывает текст сообщения. Кнопки свернуть/
+             развернуть — декоративные, закрыть — реально закрывает.
+             ===================================================== -->
+        <div class="window" id="notepad-window" role="dialog" aria-label="message.txt — Блокнот">
+          <div class="titlebar" id="titlebar">
+            <span class="title-icon">📄</span>
+            <span class="title-text">message.txt — Блокнот</span>
+            <div class="title-buttons">
+              <button type="button" id="btn-min" title="Свернуть">_</button>
+              <button type="button" id="btn-max" title="Развернуть">□</button>
+              <button type="button" id="btn-close" title="Закрыть">×</button>
+            </div>
+          </div>
+          <div class="menubar">
+            <span>Файл</span><span>Правка</span><span>Формат</span><span>Вид</span><span>Справка</span>
+          </div>
+          <div class="notepad-body">
+            <!-- =========================================================
+                 EDIT YOUR MESSAGE HERE
+                 =========================================================
+                 Текст ниже — это и есть содержимое message.txt, которое
+                 видит пользователь при открытии файла.
+            -->
+            <textarea class="notepad-text" id="doc-body" readonly>Если ты это читаешь — значит, компьютер всё-таки включился, и файл открылся. Я не была уверена, что после всего этого времени на нём вообще что-то останется.
 
-  <div class="device-header">
-    <div class="row"><span><span class="rec-dot"></span>REMOVABLE STORAGE DEVICE</span><span class="hi">STATUS: RECOVERED</span></div>
-    <div class="row"><span>DEVICE ID: UNKNOWN</span><span>FILES FOUND: 4</span></div>
-    <div class="row"><span>ENCRYPTION: ACTIVE</span><span>SECTORS OK: 2 / 3</span></div>
-  </div>
+Это не письмо в привычном смысле. Я не знаю, кто ты и когда именно нашёл этот компьютер. Может, прошло несколько месяцев. Может — гораздо больше.
 
-  <div class="doc-wrap">
-    <h1 class="doc-title">MESSAGE // 01</h1>
-    <div class="doc-subtitle">RECOVERED FROM DAMAGED SECTOR — ORIGINAL TIMESTAMP UNREADABLE</div>
+Я специально не хранила это ни на сервере, ни в облаке. Только здесь. На одной старой машине, которую можно потерять, спрятать или выключить — но не выследить.
 
-    <hr class="divider">
+[ ПРЕДУПРЕЖДЕНИЕ ] Не подключай это устройство к рабочим или личным сетям без крайней необходимости. Часть данных на нём повреждена не случайно.
 
-    <!-- =========================================================
-         FILE LIST — shown right after boot, before the password
-         Только MESSAGE.TXT кликабелен. Остальные — просто атмосфера,
-         можно менять названия файлов ниже как угодно.
-         ========================================================= -->
-    <div class="file-list-screen" id="file-list-screen">
-      <div class="file-list-title">FILES ON DEVICE:</div>
+Если коротко: то, что случилось на объекте, не было аварией. Записи, которые я собрала до того, как всё отключили, находятся не здесь — но этот файл укажет, где их искать.
 
-      <div class="file-entry corrupted">
-        LOG_001.DAT <span class="status">CORRUPTED</span>
-        <span class="denied-flash">NO ACCESS</span>
-      </div>
-      <div class="file-entry corrupted">
-        PHOTO_003.JPG <span class="status">UNREADABLE</span>
-        <span class="denied-flash">NO ACCESS</span>
-      </div>
-      <div class="file-entry corrupted">
-        VOICE_MEMO.WAV <span class="status">CORRUPTED</span>
-        <span class="denied-flash">NO ACCESS</span>
-      </div>
-      <div class="file-entry open" id="open-message-file">
-        MESSAGE.TXT <span class="status ok">RECOVERED</span>
-      </div>
+Ищи в тех местах, о которых мы говорили последний раз. Ты поймёшь, когда доберёшься.
 
-      <div class="file-list-hint">CLICK MESSAGE.TXT TO OPEN</div>
-    </div>
+Будь осторожен. И, пожалуйста — не доверяй никому, кто скажет, что нашёл это раньше тебя.</textarea>
+            <!-- END EDITABLE MESSAGE -->
+          </div>
+          <div class="statusbar">Готово</div>
+        </div>
 
-    <!-- =========================================================
-         PASSWORD GATE
-         Правильный ключ задаётся константой CORRECT_KEY в скрипте
-         ниже (по умолчанию 1111). Подсказку меняй прямо тут:
-         ========================================================= -->
-    <div class="lock-box hidden" id="lock-box">
-      <div class="lock-icon">[ ENCRYPTED ]</div>
-      <div class="lock-label">СОДЕРЖИМОЕ ФАЙЛА ЗАШИФРОВАНО<br>ВВЕДИТЕ 4-ЗНАЧНЫЙ КЛЮЧ ДЕШИФРОВКИ</div>
-      <div class="key-slots">
-        <span class="key-slot"></span>
-        <span class="key-slot"></span>
-        <span class="key-slot"></span>
-        <span class="key-slot"></span>
-      </div>
-      <input type="tel" inputmode="numeric" id="key-input" maxlength="4" autocomplete="off">
-      <div class="lock-hint">НАЖМИТЕ СЮДА И ВВЕДИТЕ КЛЮЧ</div>
+        <!-- generic toast used by all decorative ("мишура") buttons -->
+        <div class="toast" id="toast"></div>
 
-      <!-- EDIT PASSWORD HINT HERE -->
-      <div class="lock-hint-text">HINT: ПЕРВАЯ ЦИФРА</div>
+        <!-- =====================================================
+             START MENU — полностью декоративное, пунктов много,
+             ни один реально ничего не открывает.
+             ===================================================== -->
+        <div class="start-menu" id="start-menu">
+          <div class="start-menu-header">
+            <div class="start-avatar">👤</div>
+            <span>Пользователь</span>
+          </div>
+          <div class="start-menu-items">
+            <div data-name="Мои документы">📁 Мои документы</div>
+            <div data-name="Панель управления">⚙️ Панель управления</div>
+            <div data-name="Принтеры и факсы">🖨️ Принтеры и факсы</div>
+            <div data-name="Справка и поддержка">❓ Справка и поддержка</div>
+            <div class="sep"></div>
+            <div data-name="Выполнить...">▶️ Выполнить...</div>
+            <div class="sep"></div>
+            <div data-name="Завершение работы">🔒 Завершение работы...</div>
+          </div>
+        </div>
 
-      <div class="lock-error" id="lock-error"></div>
-    </div>
+        <!-- =====================================================
+             TASKBAR — Пуск, значки быстрого запуска и трея
+             кликабельны, но являются пустышкой (мишура).
+             ===================================================== -->
+        <div class="taskbar">
+          <button type="button" class="start-btn" id="start-btn">
+            <span class="flag"><span></span><span></span><span></span><span></span></span>
+            Пуск
+          </button>
 
-    <!-- =========================================================
-         EDIT YOUR MESSAGE HERE
-         =========================================================
-         Всё, что находится внутри <div class="doc-body"> ... </div>
-         ниже — это и есть текст сообщения, который видит игрок
-         ПОСЛЕ ввода правильного пароля.
+          <div class="taskbar-sep"></div>
 
-         Разрешённые элементы:
-           <p>...</p>            — обычный абзац
-           <strong>...</strong>  — выделенный (яркий) текст
-           <em>...</em>          — курсив
-           <div class="warning"> — блок предупреждения
+          <div class="quicklaunch" id="quicklaunch">
+            <div class="ql-btn" data-name="Свернуть все окна" title="Свернуть все окна">🗔</div>
+            <div class="ql-btn" data-name="Internet Explorer" title="Internet Explorer">🌐</div>
+            <div class="ql-btn" data-name="Outlook Express" title="Outlook Express">✉️</div>
+          </div>
 
-         Можно свободно добавлять, удалять и менять абзацы.
-         Ничего в остальном файле трогать не нужно.
-    -->
-    <div class="encrypted-content" id="encrypted-content">
-      <div class="doc-body" id="doc-body">
+          <div class="taskbar-sep"></div>
 
-        <p>Привет. Есть работенка. От нашего главного колдуна есть небольшой заказик на будущее.</p>
+          <div class="taskbar-windows">
+            <button type="button" class="taskbar-window-btn" id="taskbar-msg-btn">
+              📄 message.txt — Блокнот
+            </button>
+          </div>
 
-        <p>Он готов отвесить услугу/кровь/деньги, за определенную вещь.</p>
-
-        <p>Ему нужна кровь и личная вещь следующих объектов <strong>Зам Глава больницы.</strong>, <strong>Начальник отдела криминалистики полиции.</strong> </p>
-
-        <p>Это долгосрочный проект, спешить некуда. Если будет любопытно - вкидывайте инфу, подумаем.<p>
-
-        <div class="warning">
-          <span class="tag">[ WARNING ]</span>
-          Не подключай это устройство к рабочим или личным сетям без крайней необходимости. Хотя без разницы, я говнокодер.
+          <div class="tray">
+            <span class="tray-icon" data-name="Громкость">🔊</span>
+            <span class="tray-icon" data-name="Сеть">📶</span>
+            <span class="clock" id="clock">00:00</span>
+          </div>
         </div>
 
       </div>
-      <!-- END EDITABLE MESSAGE -->
     </div>
-
-    <hr class="divider">
   </div>
-
-  <div class="footer-sig">
-    FILE RECOVERY COMPLETE<br>
-    DEVICE DISCONNECTED<br>
-    END OF FILE<span class="end-cursor"></span>
-  </div>
-
 </div>
 
 <script>
 (function(){
 
   /* =========================================================
-     AUDIO ENGINE (Web Audio API, no external files)
-     Sound is entirely opt-in: audioEnabled stays false, and
-     the AudioContext is only ever created from a direct click
-     on #audio-toggle — nothing plays automatically anywhere.
+     TOAST — общая обратная связь для декоративных элементов
      ========================================================= */
-  let audioCtx = null;
-  let audioEnabled = false;
-
-  function ensureAudioCtx(){
-    if(!audioCtx){
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if(Ctx) audioCtx = new Ctx();
-    }
-    return audioCtx;
+  const toast = document.getElementById("toast");
+  let toastTimer = null;
+  function showToast(text){
+    toast.textContent = text;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 1100);
   }
 
-  function beep(freq, dur, type, vol){
-    if(!audioEnabled || !audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type || "square";
-    osc.frequency.value = freq + (Math.random()*60 - 30);
-    gain.gain.value = vol || 0.03;
-    osc.connect(gain).connect(audioCtx.destination);
-    const now = audioCtx.currentTime;
-    osc.start(now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + (dur || 0.02));
-    osc.stop(now + (dur || 0.02) + 0.02);
+  /* =========================================================
+     CLOCK — просто показывает реальное время в трее
+     ========================================================= */
+  function updateClock(){
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    document.getElementById("clock").textContent = hh + ":" + mm;
+  }
+  updateClock();
+  setInterval(updateClock, 15000);
+
+  /* =========================================================
+     DESKTOP ICON SELECTION + OPENING message.txt
+     ========================================================= */
+  const icons = document.querySelectorAll(".icon");
+  const messageIcon = document.getElementById("icon-message");
+  const notepadWindow = document.getElementById("notepad-window");
+  const taskbarMsgBtn = document.getElementById("taskbar-msg-btn");
+
+  function deselectAllIcons(){
+    icons.forEach(ic => ic.classList.remove("selected"));
   }
 
-  function staticNoise(dur, vol){
-    if(!audioEnabled || !audioCtx) return;
-    const d = dur || 0.15;
-    const bufferSize = Math.floor(audioCtx.sampleRate * d);
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (vol || 0.04); }
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-    noise.connect(audioCtx.destination);
-    noise.start();
-  }
-
-  function toneSuccess(){
-    beep(600, 0.08, "sine", 0.04);
-    setTimeout(() => beep(900, 0.12, "sine", 0.04), 90);
-    setTimeout(() => beep(1300, 0.15, "sine", 0.05), 180);
-  }
-
-  function toneDenied(){
-    beep(220, 0.18, "sawtooth", 0.05);
-    setTimeout(() => beep(150, 0.22, "sawtooth", 0.05), 120);
-  }
-
-  const audioToggle = document.getElementById("audio-toggle");
-  audioToggle.addEventListener("click", () => {
-    audioEnabled = !audioEnabled;
-    const ctx = ensureAudioCtx();
-    if(ctx && ctx.state === "suspended") ctx.resume();
-    audioToggle.textContent = audioEnabled ? "[ AUDIO: ON ]" : "[ ENABLE AUDIO SIGNAL ]";
-    audioToggle.classList.toggle("on", audioEnabled);
-    if(audioEnabled) beep(880, 0.05, "sine", 0.05);
+  icons.forEach(icon => {
+    icon.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deselectAllIcons();
+      icon.classList.add("selected");
+      if(icon === messageIcon){
+        openNotepad();
+      } else {
+        showToast(icon.dataset.name + " — недоступно на этом устройстве");
+      }
+    });
   });
 
-  /* =========================================================
-     BOOT SEQUENCE CONFIG
-     Each entry: { text, className (optional), pause-after (ms) }
-     ========================================================= */
-  const bootLines = [
-    { text: "DEVICE DETECTED",            cls: "",       pause: 240 },
-    { text: "USB STORAGE FOUND",          cls: "",       pause: 260 },
-    { text: "INITIALIZING CONTROLLER...", cls: "",       pause: 300 },
-    { text: "READING DEVICE...",          cls: "",       pause: 400 },
-    { text: "SECTOR 01 ........ OK",      cls: "bright", pause: 150 },
-    { text: "SECTOR 02 ........ OK",      cls: "bright", pause: 150 },
-    { text: "SECTOR 03 ........ CORRUPTED", cls: "warn-line", pause: 480, glitch:true, sfx:"static" },
-    { text: "SECTOR 04 ........ OK",      cls: "bright", pause: 150 },
-    { text: "RECOVERING DATA...",         cls: "",       pause: 420 },
-    { text: "REBUILDING FILE TABLE...",   cls: "",       pause: 380 },
-    { text: "ENCRYPTED FILE FOUND",       cls: "bright", pause: 340 },
-    { text: "DECRYPTING...",              cls: "",       pause: 560, glitch:true, sfx:"static" },
-    { text: "ACCESS GRANTED",             cls: "bright", pause: 480 }
-  ];
+  document.getElementById("desktop").addEventListener("click", () => {
+    deselectAllIcons();
+    closeStartMenu();
+  });
 
-  const bootTextEl = document.getElementById("boot-text");
-  const bootScreen = document.getElementById("boot-screen");
-  const bootFlash  = document.getElementById("boot-flash");
-  const mainScreen = document.getElementById("main-screen");
-  const noiseLayer = document.getElementById("noise-layer");
-  const hglitchBar = document.getElementById("hglitch-bar");
-
-  /* ---- background noise characters (purely decorative) ---- */
-  const noiseChars = "01#$%&/\\<>^~*?!+=;:ABCDEFXYZ01001".split("");
-  function spawnNoise(){
-    const n = document.createElement("span");
-    const isFar = Math.random() < 0.4;
-    n.className = "noise-char" + (isFar ? " far" : "");
-    n.textContent = noiseChars[Math.floor(Math.random()*noiseChars.length)];
-    n.style.left = Math.random()*97 + "%";
-    n.style.top  = Math.random()*97 + "%";
-    n.style.animationDuration = (1.2 + Math.random()*1.8) + "s";
-    n.style.fontSize = (isFar ? 9 + Math.random()*8 : 11 + Math.random()*11) + "px";
-    noiseLayer.appendChild(n);
-    setTimeout(() => n.remove(), 3600);
-  }
-  // denser noise field for a busier, more "reading a damaged drive" feel
-  const noiseInterval = setInterval(spawnNoise, 45);
-  const noiseBurstInterval = setInterval(() => {
-    for(let i=0;i<3;i++) spawnNoise();
-  }, 260);
-
-  /* occasional horizontal glitch bar during boot */
-  const hbarInterval = setInterval(() => {
-    hglitchBar.style.top = (10 + Math.random()*80) + "%";
-    hglitchBar.classList.remove("play");
-    void hglitchBar.offsetWidth;
-    hglitchBar.classList.add("play");
-  }, 900);
-
-  /* ---- typewriter for one line, returns a Promise ---- */
-  function typeLine(entry){
-    return new Promise((resolve) => {
-      const lineEl = document.createElement("div");
-      lineEl.className = "line" + (entry.cls ? " " + entry.cls : "");
-      bootTextEl.appendChild(lineEl);
-
-      if(entry.sfx === "static") staticNoise(0.2, 0.05);
-
-      const chars = entry.text.split("");
-      let i = 0;
-
-      // occasional dropped character for a "damaged media" feel
-      function nextChar(){
-        if(i >= chars.length){
-          if(entry.glitch){
-            lineEl.classList.add("glitch-text");
-          }
-          const cursor = document.createElement("span");
-          cursor.id = "boot-cursor";
-          lineEl.appendChild(cursor);
-          setTimeout(() => {
-            cursor.remove();
-            resolve();
-          }, entry.pause);
-          return;
-        }
-        const skip = Math.random() < 0.045; // rare dropped char, retried next tick
-        if(!skip){
-          lineEl.textContent += chars[i];
-          i++;
-          beep(720 + Math.random()*280, 0.015, "square", 0.02);
-        }
-        setTimeout(nextChar, 20 + Math.random()*26);
-      }
-      nextChar();
-    });
+  function openNotepad(){
+    notepadWindow.classList.remove("minimized");
+    notepadWindow.classList.add("open");
+    taskbarMsgBtn.classList.add("show", "active");
+    taskbarMsgBtn.classList.remove("inactive");
   }
 
-  async function runBoot(){
-    // brief pause before anything appears
-    await new Promise(r => setTimeout(r, 400));
-    for(const entry of bootLines){
-      await typeLine(entry);
+  function closeNotepad(){
+    notepadWindow.classList.remove("open", "minimized");
+    taskbarMsgBtn.classList.remove("show", "active", "inactive");
+  }
+
+  function minimizeNotepad(){
+    notepadWindow.classList.add("minimized");
+    taskbarMsgBtn.classList.add("inactive");
+  }
+
+  document.getElementById("btn-close").addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeNotepad();
+  });
+
+  document.getElementById("btn-min").addEventListener("click", (e) => {
+    e.stopPropagation();
+    minimizeNotepad();
+  });
+
+  document.getElementById("btn-max").addEventListener("click", (e) => {
+    e.stopPropagation();
+    // декоративная кнопка — лёгкая анимация "разворота", без реальной логики
+    notepadWindow.animate(
+      [{ transform: notepadWindow.style.transform || getComputedStyle(notepadWindow).transform },
+       { transform: "translateX(-50%) scale(1.015)" },
+       { transform: "translateX(-50%) scale(1)" }],
+      { duration: 180, easing: "ease-out" }
+    );
+  });
+
+  taskbarMsgBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if(notepadWindow.classList.contains("minimized") || !notepadWindow.classList.contains("open")){
+      openNotepad();
+    } else {
+      minimizeNotepad();
     }
-    // small extra beat, then flash + reveal
-    await new Promise(r => setTimeout(r, 300));
-    clearInterval(noiseInterval);
-    clearInterval(noiseBurstInterval);
-    clearInterval(hbarInterval);
-    bootFlash.classList.add("go");
-    setTimeout(() => {
-      bootScreen.classList.add("fade-out");
-      setTimeout(() => {
-        bootScreen.classList.add("hidden");
-        mainScreen.classList.add("visible");
-        initFileList();
-      }, 600);
-    }, 160);
-  }
+  });
+
+  // не даём кликам внутри окна закрывать выделение иконок
+  notepadWindow.addEventListener("click", (e) => e.stopPropagation());
 
   /* =========================================================
-     FILE LIST SCREEN — shown right after boot
+     START MENU + TASKBAR BUTTONS — чистая мишура (пустышка)
      ========================================================= */
-  function initFileList(){
-    const fileListScreen = document.getElementById("file-list-screen");
-    const openMessageBtn = document.getElementById("open-message-file");
-    const corruptedEntries = document.querySelectorAll(".file-entry.corrupted");
+  const startBtn = document.getElementById("start-btn");
+  const startMenu = document.getElementById("start-menu");
 
-    corruptedEntries.forEach(entry => {
-      entry.addEventListener("click", () => {
-        staticNoise(0.12, 0.04);
-        const flash = entry.querySelector(".denied-flash");
-        flash.classList.remove("play");
-        void flash.offsetWidth;
-        flash.classList.add("play");
-      });
-    });
-
-    openMessageBtn.addEventListener("click", () => {
-      beep(500, 0.03, "square", 0.03);
-      fileListScreen.classList.add("fading");
-      setTimeout(() => {
-        fileListScreen.classList.add("hidden");
-        initLock();
-      }, 420);
-    }, { once: true });
+  function openStartMenu(){
+    startMenu.classList.add("open");
+    startBtn.classList.add("active");
+  }
+  function closeStartMenu(){
+    startMenu.classList.remove("open");
+    startBtn.classList.remove("active");
   }
 
-  /* =========================================================
-     PASSWORD / DECRYPTION GATE LOGIC
-     Правильный ключ задаётся ниже. По умолчанию: 1111
-     ========================================================= */
-  const CORRECT_KEY = "1111";
-  const MAX_ATTEMPTS = 5;
-  const LOCKOUT_SECONDS = 30;
-
-  function initLock(){
-    const lockBox = document.getElementById("lock-box");
-    const keyInput = document.getElementById("key-input");
-    const keySlots = document.querySelectorAll(".key-slot");
-    const lockError = document.getElementById("lock-error");
-    const encryptedContent = document.getElementById("encrypted-content");
-    let attempts = 0;
-    let solved = false;
-    let lockedOut = false;
-
-    lockBox.classList.remove("hidden");
-    lockBox.classList.add("fading-in");
-
-    function updateSlots(){
-      const val = keyInput.value;
-      keySlots.forEach((slot, idx) => {
-        slot.textContent = val[idx] ? "•" : "";
-      });
+  startBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if(startMenu.classList.contains("open")){
+      closeStartMenu();
+    } else {
+      openStartMenu();
     }
+  });
 
-    function focusInput(){
-      if(lockedOut || solved) return;
-      keyInput.focus();
-      lockBox.classList.add("focused");
-    }
+  startMenu.addEventListener("click", (e) => e.stopPropagation());
 
-    lockBox.addEventListener("click", focusInput);
-    keyInput.addEventListener("blur", () => lockBox.classList.remove("focused"));
-
-    keyInput.addEventListener("input", () => {
-      const before = keyInput.value;
-      keyInput.value = keyInput.value.replace(/\D/g, "").slice(0, 4);
-      if(keyInput.value.length > before.replace(/\D/g,"").length - 1){
-        beep(500 + Math.random()*80, 0.02, "square", 0.03);
-      }
-      updateSlots();
-      if(keyInput.value.length === 4){
-        setTimeout(checkKey, 180);
-      }
+  document.querySelectorAll(".start-menu-items div[data-name]").forEach(item => {
+    item.addEventListener("click", () => {
+      showToast(item.dataset.name + " — недоступно");
+      closeStartMenu();
     });
+  });
 
-    function checkKey(){
-      if(solved || lockedOut) return;
-      const val = keyInput.value;
-      if(val.length < 4) return;
-
-      if(val === CORRECT_KEY){
-        solved = true;
-        lockError.style.color = "var(--green-bright)";
-        lockError.textContent = "KEY ACCEPTED — DECRYPTING...";
-        toneSuccess();
-        setTimeout(() => {
-          lockBox.style.display = "none";
-          encryptedContent.classList.add("revealed");
-          scrambleReveal(document.getElementById("doc-body"));
-        }, 380);
-      } else {
-        attempts++;
-        toneDenied();
-        lockBox.classList.remove("shake");
-        void lockBox.offsetWidth; // reflow to restart animation
-        lockBox.classList.add("shake");
-        keyInput.value = "";
-        updateSlots();
-
-        if(attempts >= MAX_ATTEMPTS){
-          startLockout();
-        } else {
-          lockError.style.color = "var(--red-warn)";
-          lockError.textContent = "ACCESS DENIED — INCORRECT KEY (ATTEMPT " + attempts + "/" + MAX_ATTEMPTS + ")";
-          focusInput();
-        }
-      }
-    }
-
-    function startLockout(){
-      lockedOut = true;
-      keyInput.disabled = true;
-      keyInput.blur();
-      lockBox.classList.remove("focused");
-      lockBox.classList.add("locked-out");
-      let secondsLeft = LOCKOUT_SECONDS;
-      updateLockoutMessage(secondsLeft);
-      const timer = setInterval(() => {
-        secondsLeft--;
-        if(secondsLeft <= 0){
-          clearInterval(timer);
-          lockedOut = false;
-          attempts = 0;
-          keyInput.disabled = false;
-          lockBox.classList.remove("locked-out");
-          lockError.style.color = "var(--green-dim)";
-          lockError.textContent = "";
-          focusInput();
-        } else {
-          updateLockoutMessage(secondsLeft);
-        }
-      }, 1000);
-    }
-
-    function updateLockoutMessage(s){
-      const mm = String(Math.floor(s / 60)).padStart(2, "0");
-      const ss = String(s % 60).padStart(2, "0");
-      lockError.style.color = "var(--amber-warn)";
-      lockError.textContent = "SYSTEM LOCKED — RETRY IN " + mm + ":" + ss;
-    }
-
-    setTimeout(focusInput, 300);
-  }
-
-  /* =========================================================
-     DECRYPT-REVEAL TEXT EFFECT
-     Walks every text node inside the message and lets each one
-     "resolve" from scrambled characters into the real text —
-     preserves <strong>/<em>/tags because only text nodes are
-     touched, never the surrounding HTML.
-     ========================================================= */
-  function scrambleReveal(root){
-    if(!root) return;
-    const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&";
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    let node;
-    while((node = walker.nextNode())){
-      if(node.textContent.trim().length > 0) nodes.push(node);
-    }
-
-    nodes.forEach((textNode, nodeIndex) => {
-      const original = textNode.textContent;
-      const len = original.length;
-      const totalFrames = 16;
-      let frame = 0;
-      const startDelay = nodeIndex * 25; // slight cascading stagger between elements
-
-      setTimeout(() => {
-        const interval = setInterval(() => {
-          frame++;
-          const revealCount = Math.floor((frame / totalFrames) * len);
-          let out = "";
-          for(let i = 0; i < len; i++){
-            const ch = original[i];
-            if(ch === " " || ch === "\n" || i < revealCount){
-              out += ch;
-            } else {
-              out += scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
-            }
-          }
-          textNode.textContent = out;
-          if(frame >= totalFrames){
-            textNode.textContent = original;
-            clearInterval(interval);
-          }
-        }, 28);
-      }, startDelay);
+  document.querySelectorAll(".ql-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showToast(btn.dataset.name + " — недоступно");
     });
-  }
+  });
 
-  runBoot();
+  document.querySelectorAll(".tray-icon").forEach(icon => {
+    icon.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showToast(icon.dataset.name + " — недоступно");
+    });
+  });
 
 })();
 </script>
@@ -1143,13 +865,13 @@
 EDITABLE MESSAGE
 МЕНЯЙ ТЕКСТ ТОЛЬКО В ЭТОМ БЛОКЕ
 ==================================================
-Найди в коде выше блок:
+Найди в коде выше:
 
-  <div class="doc-body" id="doc-body">
+  <textarea class="notepad-text" id="doc-body" readonly>
     ... текст сообщения ...
-  </div>
+  </textarea>
 
 Он отмечен комментариями:
   <!-- EDIT YOUR MESSAGE HERE -->
   <!-- END EDITABLE MESSAGE -->
-
+-->
